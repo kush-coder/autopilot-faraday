@@ -1,0 +1,81 @@
+variables:
+  TZ: "America/New_York"
+  # Configure postgres service (https://hub.docker.com/_/postgres/)
+  POSTGRES_DB: custom_db
+  POSTGRES_USER: custom_user
+  POSTGRES_PASSWORD: custom_pass
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  APT_CACHE_DIR: "$CI_PROJECT_DIR/apt-cache"
+  DEBIAN_FRONTEND: noninteractive
+  IMAGE_TAG: 'egrep -o "[0-9]\.([0-9]|[0-9][0-9])(\.[0-9])?" faraday/__init__.py'
+  AWS_FRONT_BRANCH: 'community/staging'
+  VAULT_SERVER_URL: https://tluav-lb.faradaysec.com
+  VAULT_AUTH_ROLE: faraday-env-readonly
+  VAULT_AUTH_PATH: jwt
+  FOLDER: master
+  # UV configuration
+  UV_CACHE_DIR: "$CI_PROJECT_DIR/.cache/uv"
+  UV_PROJECT_ENVIRONMENT: "$CI_PROJECT_DIR/.venv"
+
+workflow:
+  rules:
+    - if: $CI_MERGE_REQUEST_ID
+      when: never
+    - when: always
+
+cache:
+  key:
+    files:
+      - uv.lock
+      - .python-version
+  paths:
+    - "$CI_PROJECT_DIR/.cache/pip"
+    - "$CI_PROJECT_DIR/apt-cache"
+    - "$CI_PROJECT_DIR/.cache/uv"
+    - "$CI_PROJECT_DIR/.venv"
+  policy: pull-push
+
+before_script:
+    - mkdir -pv $APT_CACHE_DIR
+
+include:
+  - template: Jobs/Secret-Detection.gitlab-ci.yml
+  - local: .gitlab/ci/get-secrets.yml
+  - local: .gitlab/ci/.rules-conditions.yml
+
+  - local: .gitlab/ci/testing/.pretesting-gitlab-ci.yml
+  - local: .gitlab/ci/testing/.uv-testing-gitlab-ci.yml
+  - local: .gitlab/ci/testing/.venv-testing-gitlab-ci.yml
+
+  - local: .gitlab/ci/build-ci/.uv-prebuild-gitlab-ci.yml
+  - local: .gitlab/ci/build-ci/.build-gitlab-ci.yml
+  - local: .gitlab/ci/build-ci/.testing-gitlab-ci.yml
+
+  - local: .gitlab/ci/upload/.storage-gitlab-ci.yml
+
+  - local: .gitlab/ci/deploy/deploy-gitlab-ci.yml
+
+  - local: .gitlab/ci/publish/.set-tag-gitlab-ci.yml
+  - local: .gitlab/ci/publish/.mirror-to-github-gitlab-ci.yml
+  - local: .gitlab/ci/publish/.docker-publish-gitlab-ci.yml
+
+  - template: Security/Secret-Detection.gitlab-ci.yml
+
+  - local: .gitlab/ci/review/.claude-review-gitlab-ci.yml
+
+stages:
+    - pre_testing
+    - test
+    # - post_testing
+    - pre_build
+    - build
+    - build_testing
+    - upload
+    - upload_testing
+    - deploy
+    - publish
+    - claude_review
+
+services:
+    - postgres:latest
+    - redis:latest

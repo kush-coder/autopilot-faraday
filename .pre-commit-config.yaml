@@ -1,0 +1,50 @@
+default_stages: [commit]
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.1.0
+    hooks:
+    -   id: trailing-whitespace
+        exclude: '^faraday/server/www/'
+    -   id: end-of-file-fixer
+        exclude: '^faraday/server/www/'
+    -   id: check-json
+        exclude: '^faraday/server/www/'
+    -   id: check-yaml
+        exclude: '^faraday/server/www/'
+        args: [ --unsafe ]
+    -   id: debug-statements
+        exclude: '^faraday/server/www/'
+-   repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.6
+    hooks:
+    -   id: ruff
+        exclude: '^faraday/server/www/'
+-   repo: local
+    hooks:
+    -   id: sanity-check
+        name: Commit SanityCheck
+        entry: bash scripts/sanity_check_commit.sh
+        language: system
+        verbose: true
+        stages: [merge-commit, commit, push]
+    -   id: sanity-check-file
+        name: File SanityCheck
+        entry: scripts/sanity_check_file.py
+        language: python
+        verbose: true
+        pass_filenames: false
+        args: [--mode=diff]
+        stages: [merge-commit, commit]
+    -   id: sanity-check-file-push
+        name: File Push SanityCheck
+        entry: scripts/sanity_check_file.py
+        language: python
+        verbose: true
+        pass_filenames: false
+        args: [--mode=ls, --local]
+        stages: [push]
+-   repo: https://github.com/asottile/pyupgrade
+    rev: v2.31.0
+    hooks:
+    -   id: pyupgrade
+        args: [ --py3-plus , --py36-plus]
